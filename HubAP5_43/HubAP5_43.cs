@@ -68,7 +68,7 @@ namespace Gadgeteer.Modules.GHIElectronics
         {
             Socket socket = Socket.GetSocket(socketNumber, true, this, null);
 
-            socket.EnsureTypeIsSupported('I', this);
+            //socket.EnsureTypeIsSupported('I', this);
 
             this.io60 = new IO60P16(socket);
             this.ads = new ADS7830(socket);
@@ -146,44 +146,12 @@ namespace Gadgeteer.Modules.GHIElectronics
 
             public override bool Read()
             {
-                int timeout = 0x10;
-                while (timeout > 0)
-                {
-                    try
-                    {
-                        return this.io60.readDigital(this.pin);
-                    }
-                    catch (Exception)
-                    {
-                        --timeout;
-                    }
-                    Thread.Sleep(10);
-                }
-                throw new Exception("HubAp5 redDigital Failed");
+                return this.io60.readDigital(this.pin);
             }
 
             public override void Write(bool state)
             {
-                int timeout = 0x10;
-                bool written = false;
-                while (timeout > 0)
-                {
-                    try
-                    {
-                        this.io60.writeDigital(this.pin, state);
-                        written = true;
-                        timeout = 0;
-                    }
-                    catch (Exception)
-                    {
-                        --timeout;
-                    }
-                    Thread.Sleep(10);
-                }
-                if (written == false)
-                {
-                    throw new Exception("Hub Ap5 failed Write transaction");
-                }
+                this.io60.writeDigital(this.pin, state);
             }
         }
 
@@ -200,72 +168,19 @@ namespace Gadgeteer.Modules.GHIElectronics
                 this.pin = pin;
                 this.resistorMode = resistorMode;
                 this.Mode = GTI.IOMode.Input;
-                int timeout = 0x10;
-                bool written = false;
-                while (timeout > 0)
-                {
-                    try
-                    {
-                        this.io60.writeDigital(this.pin, initialState);
-                        written = true;
-                        timeout = 0;
-                    }
-                    catch (Exception)
-                    {
-                        --timeout;
-                    }
-                    Thread.Sleep(10);
-                }
-
-                if (written == false)
-                {
-                    throw new Exception("Constructor write digital failed.");
-                }
+                this.io60.writeDigital(this.pin, initialState);
             }
 
             public override bool Read()
             {
-                int timeout = 0x10;
                 this.Mode = GTI.IOMode.Input;
-                while (timeout > 0)
-                {
-                    try
-                    {
-                        return this.io60.readDigital(this.pin);
-                    }
-                    catch (Exception)
-                    {
-                        --timeout;
-                    }
-                    Thread.Sleep(10);
-                }
-
-                throw new Exception("Hub Ap5 failed read transaction");
+                return this.io60.readDigital(this.pin);
             }
 
             public override void Write(bool state)
             {
-                int timeout = 0x10;
-                bool written = false;
                 this.Mode = GTI.IOMode.Output;
-                while (timeout > 0)
-                {
-                    try
-                    {
-                        this.io60.writeDigital(this.pin, state);
-                        timeout = 0;
-                        written = true;
-                    }
-                    catch (Exception)
-                    {
-                        --timeout;
-                    }
-                    Thread.Sleep(10);
-                }
-                if (written == false)
-                {
-                    throw new Exception("Hub Ap5 failed Write transaction");
-                }
+                this.io60.writeDigital(this.pin, state);
             }
 
             public override GTI.IOMode Mode
@@ -276,27 +191,8 @@ namespace Gadgeteer.Modules.GHIElectronics
                 }
                 set
                 {
-                    int timeout = 0x10;
                     this.mode = value;
-                    bool written = false;
-                    while (timeout > 0)
-                    {
-                        try
-                        {
-                            this.io60.setIOMode(this.pin, this.mode == GTI.IOMode.Input ? IO60P16.IOState.Input : IO60P16.IOState.Output, this.resistorMode);
-                            written = true;
-                            timeout = 0;
-                        }
-                        catch (Exception)
-                        {
-                            --timeout;
-                        }
-                        Thread.Sleep(10);
-                    }
-                    if (written == false)
-                    {
-                        throw new Exception("Hub Ap5 failed Mode transaction");
-                    }
+                    this.io60.setIOMode(this.pin, this.mode == GTI.IOMode.Input ? IO60P16.IOState.Input : IO60P16.IOState.Output, this.resistorMode);
                 }
             }
         }
@@ -580,7 +476,8 @@ namespace Gadgeteer.Modules.GHIElectronics
 
             public IO60P16(Socket socket)
             {
-                this.io60Chip = GTI.I2CBusFactory.Create(socket, 0x20, 100, null);
+                GTI.SoftwareI2CBus.ForceManagedPullUps = true;
+                this.io60Chip = new GTI.SoftwareI2CBus(socket, Socket.Pin.Eight, Socket.Pin.Nine, 0x20, 100, null);//GTI.I2CBusFactory.Create(socket, 0x20, 100, null);
 
                 this.interrupt = GTI.InterruptInputFactory.Create(socket, Socket.Pin.Three, GTI.GlitchFilterMode.On, GTI.ResistorMode.Disabled, GTI.InterruptMode.RisingEdge, null);
                 this.interrupt.Interrupt += this.OnInterrupt;
@@ -709,7 +606,9 @@ namespace Gadgeteer.Modules.GHIElectronics
 
             public ADS7830(Socket socket)
             {
-                this.i2c = GTI.I2CBusFactory.Create(socket, ADS7830.I2C_ADDRESS, 400, null);
+                this.i2c = new GTI.SoftwareI2CBus(socket, Socket.Pin.Eight, Socket.Pin.Nine, ADS7830.I2C_ADDRESS, 400, null);//GTI.I2CBusFactory.Create(socket, 0x20, 100, null);
+                    
+                    GTI.I2CBusFactory.Create(socket, ADS7830.I2C_ADDRESS, 400, null);
             }
 
             public double ReadVoltage(byte channel)
